@@ -1,0 +1,34 @@
+The cross product of Vector(3.5, 0, 0) and Vector(1.75, 3.5, 0) is:
+Vector(0, 0, 12.25)
+
+The cross product of Vector(3, -3, 1) and Vector(4, 9, 3) is:
+Vector(-18, -5, 39)
+
+The parallelogram area formed by Vector(3, -3, 1) and Vector(4, 9, 3) is: 43.2435
+
+The parallelogram area formed by Vector(3, -3, 1) and Vector(-12, 12, -4) is: 0
+
+The normal vector of Triangle(
+	Vector(-1.75, -1.75, -3),
+	Vector(1.75, -1.75, -3),
+	Vector(0, 1.75, -3)
+)
+is: Vector(0, 0, 1)
+And the area of the triangle is: 6.125
+
+The normal vector of Triangle(
+	Vector(0, 0, -1),
+	Vector(1, 0, 1),
+	Vector(-1, 0, 1)
+)
+is: Vector(0, -1, 0)
+And the area of the triangle is: 2
+
+The normal vector of Triangle(
+	Vector(0.56, 1.11, 1.23),
+	Vector(0.44, -2.368, -0.54),
+	Vector(-1.56, 0.15, -1.92)
+)
+is: Vector(0.75642, 0.275748, -0.59312)
+And the area of the triangle is: 6.11862
+
