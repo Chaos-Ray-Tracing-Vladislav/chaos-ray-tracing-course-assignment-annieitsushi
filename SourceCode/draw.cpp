@@ -177,7 +177,7 @@ void RayDrawer::prepareRays() {
             // Aspect ratio.
             x*=float(width)/height;
             // Direction.
-            Vector direction=Vector(x, y, -1)-cameraPosition;
+            Vector direction=Vector(x, y, -1);
             // Normalize vector.
             direction.normalize();
             rays[i][j]=Ray(cameraPosition, direction);
