@@ -1,292 +1,7 @@
-#include <stdio.h>
-#include <fstream>
-#include <iostream>
-#include <math.h>
 #include <time.h>
+#include <fstream>
 
-#define EPSILON 0.0001
-
-int clamp(int number, int lower, int upper) {
-  return std::max(lower, std::min(number, upper));
-}
-
-/// A structure holding the information about a color - its
-/// red, green and blue components.
-struct Color {
-    /// The red green and blue components.
-    int R, G, B;
-
-    /// Constructors.
-    Color() : R(0), G(0), B(0) {}
-    Color(int red, int green, int blue) : R(red), G(green), B(blue) {}
-
-    /// Operators.
-    Color operator+(const Color &otherColor) const {
-        const int newR=std::min(R+otherColor.R, 255);
-        const int newG=std::min(G+otherColor.G, 255);
-        const int newB=std::min(B+otherColor.B, 255);
-        return Color(newR, newG, newB);
-    }
-    Color operator-(const Color &otherColor) const {
-        const int newR=(R-otherColor.R);
-        const int newG=(G-otherColor.G);
-        const int newB=(B-otherColor.B);
-        return Color(newR, newG, newB);
-    }
-    Color operator*(double multiplier) {
-        if (multiplier<0) {
-            return *this;
-        }
-        const int newR=int(std::min(R*multiplier, 255.0));
-        const int newG=int(std::min(G*multiplier, 255.0));
-        const int newB=int(std::min(B*multiplier, 255.0));
-        return Color(newR, newG, newB);
-    }
-
-    /// Invert a color's value.
-    Color invert() const {
-        return Color(abs(255-R), abs(255-G), abs(255-B));
-    }
-    /// Interpolate between color values.
-    Color interpolate(const Color &otherColor, double multiplier) const {
-        return (otherColor-(*this))*multiplier+(*this);
-    }
-
-    /// Add random noise to a color.
-    Color addNoise() const {
-        const int grayValue=((rand()%2)==0)
-            ? rand()%255
-            : -rand()%255;
-        const int newR=clamp(R+grayValue, 0, 255);
-        const int newG=clamp(G+grayValue, 0, 255);
-        const int newB=clamp(B+grayValue, 0, 255);
-        return Color(newR, newG, newB);
-    }
-};
-
-/// A base class to draw to a .ppm file.
-class ImageDrawer {
-private:
-    /// The magic number for the .ppm file.
-    const std::string magicNumber="P3";
-    /// The path to the output .ppm file.
-    std::string outputFilePath;
-protected:
-    /// The file resolution.
-    size_t width, height;
-    /// A matrix of pixels.
-    Color **pixels;
-    /// The max intensity value for a Color.
-    const int maxValue=255;
-public:
-    /// Constructors.
-    ImageDrawer(const std::string &newOutputFilePath, size_t newWidth, size_t newHeight)
-        : outputFilePath(newOutputFilePath)
-        , width(newWidth)
-        , height(newHeight) {
-        pixels=new Color*[height];
-        for (int i=0; i<height; ++i) {
-            pixels[i]=new Color[width];
-        }
-    }
-    ~ImageDrawer() {
-        for (int i=0; i<height; ++i) {
-            delete [] pixels[i];
-        }
-        delete [] pixels;
-    }
-
-    /// A function to change the output .ppm file.
-    void changeOutputFile(const std::string &newOutputFilePath) {
-        outputFilePath=newOutputFilePath;
-    }
-
-    /// Fill the image with a solid background color.
-    void fillSolidBackground(const Color &backgroundColor) {
-        for (int i=0; i<height; ++i) {
-            for (int j=0; j<width; ++j) {
-                pixels[i][j]=backgroundColor;
-            }
-        }
-    }
-
-    /// Fill the image with a gradient - interpolate between two given colors.
-    void fillGradientBackground(const Color &color1, const Color &color2) {
-        for (int i=0; i<height; ++i) {
-            const Color &interpolatedColor=color1.interpolate(color2, (double(i)/height));
-            for (int j=0; j<width; ++j) {
-                pixels[i][j]=interpolatedColor;
-            }
-        }
-    }
-
-    /// Output the image to the .ppm file, based on the pixels stored in this class.
-    void draw() {
-        // Open the output stream.
-        std::ofstream outputStream(outputFilePath, std::ofstream::out);
-        // If it's not valid, print an error and early return.
-        if (!outputStream.is_open()) {
-            printf("Couldn't open the given file path.\n");
-            return;
-        }
-        // Print the magic number.
-        outputStream<<magicNumber<<'\n';
-        // Print the resolution.
-        outputStream<<width<<' '<<height<<'\n';
-        // Print the max intensity for a Color value.
-        outputStream<<maxValue<<'\n';
-        // Print the Color values per Color.
-        for (int i=0; i<height; ++i) {
-            for (int j=0; j<width; ++j) {
-                outputStream<<pixels[i][j].R<<' '<<pixels[i][j].G<<' '<<pixels[i][j].B<<'\t';
-            }
-            outputStream<<'\n';
-        }
-        // Close the output stream.
-        outputStream.close();
-        printf("Image drawn.\n");
-    }
-};
-
-/// A class with the functionality to draw circles of a given radius.
-class CircleDrawer : public ImageDrawer {
-private:
-    /// The radius of the circle.
-    int radius;
-    int centerX, centerY;
-public:
-    /// Constructor.
-    /// If the center coordinates are not specified, make it in the center of the image.
-    CircleDrawer(const std::string &newOutputFilePath, size_t newWidth, size_t newHeight, int newRadius, int newCenterX=-1, int newCenterY=-1)
-        : ImageDrawer(newOutputFilePath, newWidth, newHeight)
-        , radius(newRadius)
-        , centerX(newCenterX)
-        , centerY(newCenterY) {
-        if (centerX==-1 || centerY==-1) {
-            centerX=width/2;
-            centerY=height/2;
-        }
-    }
-
-    /// Change the parameters of the circle.
-    /// If the center coordinates are not specified, make it in the center of the image.
-    void changeCircle(int newRadius, int newCenterX=-1, int newCenterY=-1) {
-        radius=newRadius;
-        if (centerX==-1 || centerY==-1) {
-            centerX=width/2;
-            centerY=height/2;
-        }
-    }
-
-    /// Fills a circle with a solid color.
-    /// Note that this function does not fill in outside the circle, so that it can be used to fill multiple
-    /// circles in the same image. To draw a background color fillSolidBackground(..) or fillGradientBackground(..)
-    /// must be called beforehand.
-    void fillSolidCircle(const Color &color) {
-        for (int i=0; i<height; ++i) {
-            for (int j=0; j<width; ++j) {
-                const double dX=pow(j-centerX, 2);
-                const double dY=pow(i-centerY, 2);
-                const double raduisSquared=pow(radius, 2);
-                if ((dX+dY-raduisSquared)<EPSILON) {
-                    pixels[i][j]=color;
-                }
-            }
-        }
-    }
-
-    /// Fills a circle with a gradient, interpolating between two colors.
-    /// Note that this function does not fill in outside the circle, so that it can be used to fill multiple
-    /// circles in the same image. To draw a background color fillSolidBackground(..) or fillGradientBackground(..)
-    /// must be called beforehand.
-    void fillGradientCircle(const Color &color1, const Color &color2) {
-        for (int i=0; i<height; ++i) {
-            for (int j=0; j<width; ++j) {
-                const double dX=pow(j-centerX, 2);
-                const double dY=pow(i-centerY, 2);
-                const double raduisSquared=pow(radius, 2);
-                if ((dX+dY-raduisSquared)<EPSILON) {
-                    pixels[i][j]=color1.interpolate(color2, (double(i)/height));
-                }
-            }
-        }
-    }
-};
-
-/// A class with the functionality to draw rectangles with a
-class RectagnleDrawer : public ImageDrawer {
-private:
-    int fromX, fromY;
-    int sizeX, sizeY;
-public:
-    /// Constructors.
-    RectagnleDrawer(const std::string &newOutputFilePath, size_t newWidth, size_t newHeight)
-        : ImageDrawer(newOutputFilePath, newWidth, newHeight)
-        , fromX(0)
-        , fromY(0)
-        , sizeX(0)
-        , sizeY(0){}
-    RectagnleDrawer(
-        const std::string &newOutputFilePath,
-        size_t newWidth,
-        size_t newHeight,
-        int newFromX,
-        int newFromY,
-        int newSizeX,
-        int newSizeY
-    ) : ImageDrawer(newOutputFilePath, newWidth, newHeight), fromX(newFromX), fromY(newFromY), sizeX(newSizeX), sizeY(newSizeY) {}
-
-    /// Change the parameters of a rectangle.
-    void changeRectangle(
-        int newFromX,
-        int newFromY,
-        int newSizeX,
-        int newSizeY
-    ) {
-        fromX=newFromX;
-        fromY=newFromY;
-        sizeX=newSizeX;
-        sizeY=newSizeY;
-    }
-
-    /// Fill a rectangle with solid color.
-    /// Note that this function does not fill in outside the rectangle, so that it can be used to fill multiple
-    /// circles in the same image. To draw a background color fillSolidBackground(..) or fillGradientBackground(..)
-    /// must be called beforehand.
-    void fillSolidRectangle(const Color &color) {
-        const int lengthX=std::min(fromX+sizeX, int(width));
-        const int lengthY=std::min(fromY+sizeY, int(height));
-        for (int i=fromY; i<lengthY; ++i) {
-            for (int j=fromX; j<lengthX; ++j) {
-                pixels[i][j]=color;
-            }
-        }
-    }
-
-    /// Fill a rectangle with gradient interpolated between two colors.
-    /// Note that this function does not fill in outside the rectangle, so that it can be used to fill multiple
-    /// circles in the same image. To draw a background color fillSolidBackground(..) or fillGradientBackground(..)
-    /// must be called beforehand.
-    void fillGradientRectangle(const Color &color1, const Color &color2) {
-        const int lengthX=std::min(fromX+sizeX, int(width));
-        const int lengthY=std::min(fromY+sizeY, int(height));
-        for (int i=fromY; i<lengthY; ++i) {
-            for (int j=fromX; j<lengthX; ++j) {
-                pixels[i][j]=color1.interpolate(color2, (double(i)/height));
-            }
-        }
-    }
-
-    void fillNoiseRectangle(const Color &color) {
-        const int lengthX=std::min(fromX+sizeX, int(width));
-        const int lengthY=std::min(fromY+sizeY, int(height));
-        for (int i=fromY; i<lengthY; ++i) {
-            for (int j=fromX; j<lengthX; ++j) {
-                pixels[i][j]=color.addNoise();
-            }
-        }
-    }
-};
+#include "draw.h"
 
 /// Draws a sun image to a given .ppm file. The sun is a circle with a gradient, and
 /// the sky is background with a gradient.
@@ -306,7 +21,7 @@ void drawSun(const std::string &outputFilePath, size_t width, size_t height) {
 /// Draws a rectangle with noise based on a given color.
 void drawNoiseGrid(const std::string &outputFilePath, size_t width, size_t height) {
     srand(time(0));
-    RectagnleDrawer rectangleDrawer(outputFilePath, width, height);
+    RectangleDrawer rectangleDrawer(outputFilePath, width, height);
     const int oneFourthWidth=width/4;
     const int oneForthHeight=height/4;
     for (int i=0; i<4; ++i) {
@@ -321,14 +36,94 @@ void drawNoiseGrid(const std::string &outputFilePath, size_t width, size_t heigh
      rectangleDrawer.draw();
 }
 
-
 // Homework task 2.
 void task2() {
     drawSun("../Images/Homework_2/circle.ppm", 1920, 1080);
     drawNoiseGrid("../Images/Homework_2/grid.ppm", 1920, 1080);
 }
 
+void task3() {
+    RayDrawer rayDrawer("../Images/Homework_3/normalized.ppm", 1920, 1080);
+    rayDrawer.prepareRays();
+    rayDrawer.fillPixelsFromRays();
+    rayDrawer.draw();
+}
+
+void printCrossProduct(std::ofstream &outputStream, const Vector &A, const Vector &B) {
+    outputStream<<"The cross product of ";
+    outputStream<<A;
+    outputStream<<" and ";
+    outputStream<<B;
+    outputStream<<" is:\n";
+    outputStream<<A.crossProduct(B)<<'\n';
+    outputStream<<'\n';
+}
+
+void printParallelogramArea(std::ofstream &outputStream, const Vector &A, const Vector &B) {
+    outputStream<<"The parallelogram area formed by ";
+    outputStream<<A;
+    outputStream<<" and ";
+    outputStream<<B;
+    outputStream<<" is: "<<A.findParallelogramArea(B)<<'\n';
+    outputStream<<'\n';
+}
+
+void printNormalVectorAndAreaOfTriangle(std::ofstream &outputStream, const Triangle &triangle) {
+    outputStream<<"The normal vector of ";
+    outputStream<<triangle;
+    outputStream<<"\nis: ";
+    outputStream<<triangle.getNormalVector();
+    outputStream<<"\nAnd the area of the triangle is: "<<triangle.getArea()<<'\n';
+    outputStream<<'\n';
+}
+
+void task4() {
+    // Open the output stream.
+    std::ofstream outputStream("../Images/Homework_4/calculations.txt", std::ofstream::out);
+    if (!outputStream.is_open()) {
+        printf("Couldn't open the given file path.\n");
+        return;
+    }
+    const Vector A0(3.5, 0, 0), B0(1.75, 3.5, 0);
+    printCrossProduct(outputStream, A0, B0);
+
+    const Vector A1(3, -3, 1), B1(4, 9, 3);
+    printCrossProduct(outputStream, A1, B1);
+
+    const Vector A2(3, -3, 1), B2(4, 9, 3);
+    printParallelogramArea(outputStream, A2, B2);
+
+    const Vector A3(3, -3, 1), B3(-12, 12, -4);
+    printParallelogramArea(outputStream, A3, B3);
+
+    const Triangle triangle0(
+        Vector(-1.75, -1.75, -3),
+        Vector(1.75, -1.75, -3),
+        Vector(0, 1.75, -3)
+    );
+    printNormalVectorAndAreaOfTriangle(outputStream, triangle0);
+
+    const Triangle triangle1(
+        Vector(0, 0, -1),
+        Vector(1, 0, 1),
+        Vector(-1, 0, 1)
+    );
+    printNormalVectorAndAreaOfTriangle(outputStream, triangle1);
+
+    const Triangle triangle2(
+        Vector(0.56, 1.11, 1.23),
+        Vector(0.44, -2.368, -0.54),
+        Vector(-1.56, 0.15, -1.92)
+    );
+    printNormalVectorAndAreaOfTriangle(outputStream, triangle2);
+
+    // Close the output stream.
+    outputStream.close();
+    printf("File written.\n");
+}
+
 int main(int argc, const char *argv[]) {
-    task2();
+    task3();
+    task4();
     return 0;
 }
